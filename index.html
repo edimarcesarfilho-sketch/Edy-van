@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -893,9 +892,17 @@ window.showPrevTab=function(tab,btn){
 
 // ===== RENDERS =====
 function renderPainel(){
-  // Receita prevista = fixas (salario+vanessa+consultoria)
   const fixasAtual=getRFixas();
-  const receitaPrevista=Object.values(fixasAtual).filter(f=>!f.aReceber).reduce((s,f)=>s+f.val,0);
+  // Receita fixa base (salario+vanessa+consultoria recorrente)
+  const receitaFixas=Object.values(fixasAtual).filter(f=>!f.aReceber).reduce((s,f)=>s+f.val,0);
+
+  // Receitas extras lançadas (consultoria política, jingle, outro etc)
+  const FIXED_TIPOS=['salario','vanessa','consultoria_rec'];
+  const recLanc=getData('receitas',[]);
+  const extrasRec=recLanc.filter(r=>!FIXED_TIPOS.includes(r.tipo)).reduce((s,r)=>s+r.val,0);
+
+  // Receita prevista total = fixas + extras lançadas no mês
+  const receitaPrevista=receitaFixas+extrasRec;
 
   // Contas previstas (valores base, sem overrides)
   const c1b=CONTAS_BASE.ciclo1.filter(c=>!isContaQuitada(c));
@@ -903,7 +910,7 @@ function renderPainel(){
   const totalContasPrev=[...c1b,...c2b].reduce((s,c)=>s+c.val,0);
   const totalVarPrev=totalVarOrc();
 
-  // Livre previsto (base do mês)
+  // Livre previsto = receita total - compromissos - reserva
   const livrePrevisto=receitaPrevista-totalContasPrev-totalVarPrev-SALDO_MIN;
 
   // Impacto real: contas acima do previsto
@@ -920,13 +927,8 @@ function renderPainel(){
   const gPet=gastos2.filter(g=>g.cat==='pet').reduce((s,g)=>s+g.val,0);
   const extraVar=Math.max(0,gMerc-3000)+Math.max(0,gGas-800)+Math.max(0,gPet-380);
 
-  // Receitas extras (fora das fixas)
-  const recLanc2=getData('receitas',[]);
-  const extrasRec=recLanc2.filter(r=>!['salario','vanessa','consultoria_rec'].includes(r.tipo)).reduce((s,r)=>s+r.val,0);
-
-  // Livre real
-  const livreReal=livrePrevisto-extraContas-extraVar+extrasRec;
-  const livreChanged=Math.abs(livreReal-livrePrevisto)>0.01;
+  // Livre real = previsto - desvios
+  const livreReal=livrePrevisto-extraContas-extraVar;
 
   document.getElementById('p-rec').textContent=fmt(receitaPrevista);
   document.getElementById('p-desp').textContent=fmt(totalContasPrev+totalVarPrev);
@@ -939,28 +941,25 @@ function renderPainel(){
     const diff=livrePrevisto-livreReal;
     alertaCaixa='<div class="card" style="border-color:#BA7517;margin-bottom:12px"><div style="color:#854F0B;font-size:13px;display:flex;gap:8px;align-items:center"><i class="ti ti-alert-triangle" style="font-size:17px;flex-shrink:0"></i>Livre caiu '+fmt(diff)+' em relação ao previsto ('+fmt(livrePrevisto)+')</div></div>';
   } else if(extrasRec>0){
-    alertaCaixa='<div class="card" style="border-color:#1D9E75;margin-bottom:12px"><div style="color:#3B6D11;font-size:13px;display:flex;gap:8px;align-items:center"><i class="ti ti-check" style="font-size:17px;flex-shrink:0"></i>Receita extra de '+fmt(extrasRec)+' aumentou o livre!</div></div>';
+    alertaCaixa='<div class="card" style="border-color:#1D9E75;margin-bottom:12px"><div style="color:#3B6D11;font-size:13px;display:flex;gap:8px;align-items:center"><i class="ti ti-check" style="font-size:17px;flex-shrink:0"></i>+'+fmt(extrasRec)+' em extras incluídos na previsão!</div></div>';
   }
   document.getElementById('p-alerta-caixa').innerHTML=alertaCaixa;
 
-  // Receita status
-  const FIXED_TIPOS=['salario','vanessa','consultoria_rec'];
-  const recLanc3=getData('receitas',[]);
-  // How much of each fixed income has been received
+  // Receita status — progresso do que entrou vs previsto total
   const chaveToTipoMap={salario:'salario',vanessa:'vanessa',consultoria:'consultoria_rec',politica:'consultoria'};
   const recEntrou=Object.entries(fixasAtual).filter(([,f])=>!f.aReceber).reduce((s,[chave,f])=>{
     const tipo=chaveToTipoMap[chave]||chave;
-    const recebido=recLanc3.filter(r=>r.tipo===tipo&&FIXED_TIPOS.includes(r.tipo)).reduce((a,r)=>a+r.val,0);
-    return s+Math.min(f.val, recebido);
+    const recebido=recLanc.filter(r=>r.tipo===tipo&&FIXED_TIPOS.includes(r.tipo)).reduce((a,r)=>a+r.val,0);
+    return s+Math.min(f.val,recebido);
   },0);
-  const recExtras=recLanc3.filter(r=>!FIXED_TIPOS.includes(r.tipo)).reduce((s,r)=>s+r.val,0);
-  const recTotalEntrou=recEntrou+recExtras;
-  const recFaltaEntrar=Math.max(0,receitaPrevista-recEntrou);
-  const pctRec=receitaPrevista>0?Math.min(100,Math.round(recTotalEntrou/(receitaPrevista+recExtras)*100)):0;
+  const extrasEntrou=recLanc.filter(r=>!FIXED_TIPOS.includes(r.tipo)).reduce((s,r)=>s+r.val,0);
+  const recTotalEntrou=recEntrou+extrasEntrou;
+  const recFaltaEntrar=Math.max(0,receitaPrevista-recTotalEntrou);
+  const pctRec=receitaPrevista>0?Math.min(100,Math.round(recTotalEntrou/receitaPrevista*100)):0;
   document.getElementById('p-receita-status').innerHTML=`
     <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px">
       <span>Previsto: <b>${fmt(receitaPrevista)}</b></span>
-      ${recExtras>0?`<span class="green" style="font-size:12px">+${fmt(recExtras)} extras</span>`:''}
+      ${extrasRec>0?`<span class="green" style="font-size:12px">inclui +${fmt(extrasRec)} extras</span>`:''}
     </div>
     <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
       <span class="green">✓ Entrou: <b>${fmt(recTotalEntrou)}</b></span>
