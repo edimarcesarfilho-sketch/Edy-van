@@ -979,10 +979,9 @@ function renderPainel(){
     <div class="bar-bg"><div class="bar-fill" style="width:${pctRec}%;background:#1D9E75"></div></div>`;
 
   const paid=getData('paid',{});
-  const c1=getContas('ciclo1').filter(c=>!isContaQuitada(c));
-  const c2=getContas('ciclo2').filter(c=>!isContaQuitada(c));
-  const totalPago=[...c1,...c2].filter(c=>paid[c.id]).reduce((s,c)=>s+getValConta(c),0);
-  const totalJ=[...CONTAS_BASE.ciclo1,...CONTAS_BASE.ciclo2].reduce((s,c)=>s+getValConta(c),0);
+  const todasContasBase=[...CONTAS_BASE.ciclo1,...CONTAS_BASE.ciclo2];
+  const totalPago=todasContasBase.filter(c=>isContaQuitada(c)).reduce((s,c)=>s+getValConta(c),0);
+  const totalJ=todasContasBase.reduce((s,c)=>s+getValConta(c),0);
   const pct=totalJ>0?Math.round(totalPago/totalJ*100):0;
   document.getElementById('p-janela-status').innerHTML=`
     <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px">
