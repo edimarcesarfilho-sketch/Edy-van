@@ -904,34 +904,28 @@ function renderPainel(){
   // Receita prevista total = fixas + extras lançadas no mês
   const receitaPrevista=receitaFixas+extrasRec;
 
-  // Contas previstas (valores base, sem overrides)
+  // Contas que ainda faltam pagar (com valor real, já excluindo quitadas)
   const c1b=CONTAS_BASE.ciclo1.filter(c=>!isContaQuitada(c));
   const c2b=CONTAS_BASE.ciclo2.filter(c=>!isContaQuitada(c));
-  const totalContasPrev=[...c1b,...c2b].reduce((s,c)=>s+c.val,0);
-  const totalVarPrev=totalVarOrc();
+  const totalContasFalta=[...c1b,...c2b].reduce((s,c)=>s+getValConta(c),0);
 
-  // Livre previsto = receita total - compromissos - reserva
-  const livrePrevisto=receitaPrevista-totalContasPrev-totalVarPrev-SALDO_MIN;
-
-  // Impacto real: contas acima do previsto
-  const overrides=getData('val_overrides',{});
-  let extraContas=0;
-  [...CONTAS_BASE.ciclo1,...CONTAS_BASE.ciclo2].forEach(function(c){
-    if(overrides[c.id]!==undefined) extraContas+=(overrides[c.id]-c.val);
-  });
-
-  // Impacto real: variáveis além do orçamento
+  // Variáveis: quanto já foi gasto e quanto resta do orçamento
   const gastos2=getData('gastos',[]);
   const gMerc=gastos2.filter(g=>g.cat==='mercado').reduce((s,g)=>s+g.val,0);
   const gGas=gastos2.filter(g=>g.cat==='gasolina').reduce((s,g)=>s+g.val,0);
   const gPet=gastos2.filter(g=>g.cat==='pet').reduce((s,g)=>s+g.val,0);
-  const extraVar=Math.max(0,gMerc-3000)+Math.max(0,gGas-800)+Math.max(0,gPet-380);
+  // Restante do orçamento variável (se já passou do orçamento, conta o que gastou a mais)
+  const varRestante=Math.max(0,3000-gMerc)+Math.max(0,800-gGas)+Math.max(0,380-gPet);
+  const varExtrapolou=Math.max(0,gMerc-3000)+Math.max(0,gGas-800)+Math.max(0,gPet-380);
 
-  // Livre real = previsto - desvios
-  const livreReal=livrePrevisto-extraContas-extraVar;
+  // Livre real = receita prevista - contas que faltam - variáveis restantes - reserva
+  const livreReal=receitaPrevista-totalContasFalta-varRestante-varExtrapolou-SALDO_MIN;
+  // Livre previsto (para comparação no alerta)
+  const totalContasPrev=[...CONTAS_BASE.ciclo1,...CONTAS_BASE.ciclo2].reduce((s,c)=>s+c.val,0);
+  const livrePrevisto=receitaPrevista-totalContasPrev-totalVarOrc()-SALDO_MIN;
 
   document.getElementById('p-rec').textContent=fmt(receitaPrevista);
-  document.getElementById('p-desp').textContent=fmt(totalContasPrev+totalVarPrev);
+  document.getElementById('p-desp').textContent=fmt(totalContasFalta+varRestante+varExtrapolou);
   const ps=document.getElementById('p-saldo');
   ps.textContent=(livreReal<0?'- ':'')+fmt(Math.abs(livreReal));
   ps.className='val '+(livreReal>=0?'green':'red');
@@ -1142,9 +1136,17 @@ function renderReceitas(){
   const recLancadas=getData('receitas',[]);
   // Only truly extra (not partial payments of fixed income)
   const FIXED_TIPOS=['salario','vanessa','consultoria_rec'];
-  const totalExtras=recLancadas.filter(r=>!FIXED_TIPOS.includes(r.tipo)).reduce((s,r)=>s+r.val,0);
-  const totalFixas=Object.values(fixas).filter(f=>!f.aReceber).reduce((s,f)=>s+f.val,0);
-  document.getElementById('r-total').textContent=fmt(totalFixas+totalExtras);
+  const extras=recLancadas.filter(r=>!FIXED_TIPOS.includes(r.tipo));
+  const totalExtras=extras.reduce((s,r)=>s+r.val,0);
+  // Map chave to tipo for matching lancamentos
+  const chaveToTipoCalc={salario:'salario',vanessa:'vanessa',consultoria:'consultoria_rec',politica:'consultoria'};
+  // Total realmente recebido = soma do que foi lançado de fixas + extras
+  const totalFixasRecebido=Object.entries(fixas).filter(([,f])=>!f.aReceber).reduce((s,[chave,f])=>{
+    const tipo=chaveToTipoCalc[chave]||chave;
+    const recebido=recLancadas.filter(r=>r.tipo===tipo).reduce((a,r)=>a+r.val,0);
+    return s+Math.min(f.val,recebido);
+  },0);
+  document.getElementById('r-total').textContent=fmt(totalFixasRecebido+totalExtras);
   document.getElementById('r-extra').textContent=fmt(totalExtras);
   // Check if consultoria politica was received
   const consultoriaRecebida=recLancadas.some(r=>r.tipo==='consultoria');
