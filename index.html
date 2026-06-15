@@ -113,7 +113,7 @@ input:focus,select.form-sel:focus{border-color:#1D9E75}
     <div class="metric-grid">
       <div class="metric"><div class="lbl">Receita</div><div class="val green" id="p-rec">—</div></div>
       <div class="metric"><div class="lbl">A pagar</div><div class="val red" id="p-desp">—</div></div>
-      <div class="metric"><div class="lbl">Livre</div><div class="val" id="p-saldo">—</div><div style="font-size:10px;color:#aaa;margin-top:2px">reserva R$1k inclusa</div></div>
+      <div class="metric"><div class="lbl">Livre</div><div class="val" id="p-saldo">—</div></div>
     </div>
     <div id="p-alerta-caixa"></div>
     <div class="card">
@@ -443,7 +443,7 @@ const CONTAS_BASE = {
     {id:'luz',desc:'Luz',val:1361,dia:20,parcTotal:0,parcAtual:0},
     {id:'finapto',desc:'Financiamento Apto',val:2313.89,dia:20,parcTotal:0,parcAtual:0},
     {id:'psico',desc:'Psicóloga',val:1280,dia:20,parcTotal:0,parcAtual:0},
-    {id:'nubank',desc:'Nubank Vanessa',val:840.14,dia:20,parcTotal:0,parcAtual:0},
+    {id:'nubank',desc:'Nubank Vanessa',val:1200,dia:20,parcTotal:0,parcAtual:0},
     {id:'itau',desc:'Itaú Vanessa',val:511.81,dia:20,parcTotal:0,parcAtual:0},
     {id:'diarista',desc:'Diarista',val:640,dia:20,parcTotal:0,parcAtual:0},
     {id:'stream',desc:'Streaming',val:80,dia:20,parcTotal:0,parcAtual:0},
@@ -904,7 +904,7 @@ function renderPainel(){
   // Receita prevista total = fixas + extras lançadas no mês
   const receitaPrevista=receitaFixas+extrasRec;
 
-  // Contas que ainda faltam pagar (com valor real, já excluindo quitadas)
+  // Contas que ainda faltam pagar
   const c1b=CONTAS_BASE.ciclo1.filter(c=>!isContaQuitada(c));
   const c2b=CONTAS_BASE.ciclo2.filter(c=>!isContaQuitada(c));
   const totalContasFalta=[...c1b,...c2b].reduce((s,c)=>s+getValConta(c),0);
@@ -914,18 +914,19 @@ function renderPainel(){
   const gMerc=gastos2.filter(g=>g.cat==='mercado').reduce((s,g)=>s+g.val,0);
   const gGas=gastos2.filter(g=>g.cat==='gasolina').reduce((s,g)=>s+g.val,0);
   const gPet=gastos2.filter(g=>g.cat==='pet').reduce((s,g)=>s+g.val,0);
-  // Restante do orçamento variável (se já passou do orçamento, conta o que gastou a mais)
+  // Restante do orçamento variável (se extrapolou, conta o excesso)
   const varRestante=Math.max(0,3000-gMerc)+Math.max(0,800-gGas)+Math.max(0,380-gPet);
   const varExtrapolou=Math.max(0,gMerc-3000)+Math.max(0,gGas-800)+Math.max(0,gPet-380);
 
-  // Livre real = receita prevista - contas que faltam - variáveis restantes - reserva
-  const livreReal=receitaPrevista-totalContasFalta-varRestante-varExtrapolou-SALDO_MIN;
-  // Livre previsto (para comparação no alerta)
-  const totalContasPrev=[...CONTAS_BASE.ciclo1,...CONTAS_BASE.ciclo2].reduce((s,c)=>s+c.val,0);
-  const livrePrevisto=receitaPrevista-totalContasPrev-totalVarOrc()-SALDO_MIN;
+  // A pagar = contas que faltam + variáveis restantes + o que extrapolou
+  const totalAPagar=totalContasFalta+varRestante+varExtrapolou;
+
+  // Livre = receita prevista - a pagar (sem reserva)
+  const livreReal=receitaPrevista-totalAPagar;
+  const livrePrevisto=livreReal; // para compatibilidade com alertas
 
   document.getElementById('p-rec').textContent=fmt(receitaPrevista);
-  document.getElementById('p-desp').textContent=fmt(totalContasFalta+varRestante+varExtrapolou);
+  document.getElementById('p-desp').textContent=fmt(totalAPagar);
   const ps=document.getElementById('p-saldo');
   ps.textContent=(livreReal<0?'- ':'')+fmt(Math.abs(livreReal));
   ps.className='val '+(livreReal>=0?'green':'red');
