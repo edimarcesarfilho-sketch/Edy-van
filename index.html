@@ -514,8 +514,10 @@ function getValConta(c){const o=getData('val_overrides',{});return o[c.id]!==und
 function getNomeConta(c){const o=getData('nome_overrides',{});return o[c.id]!==undefined?o[c.id]:c.desc;}
 
 function isContaQuitada(c){
-  if(!c.parcTotal||c.parcTotal===0)return false;
   const paid=getData('paid',{});
+  // Conta simples (sem parcelas): quitada se marcada como paga
+  if(!c.parcTotal||c.parcTotal===0) return paid[c.id]===true;
+  // Conta parcelada: quitada se atingiu o total de parcelas
   const marcadas=getData('parc_marcadas',{});
   const qtd=(marcadas[c.id]||0)+(paid[c.id]?1:0);
   return qtd>=c.parcTotal;
@@ -904,26 +906,42 @@ function renderPainel(){
   // Receita prevista total = fixas + extras lançadas no mês
   const receitaPrevista=receitaFixas+extrasRec;
 
-  // Contas que ainda faltam pagar
+  // Contas que ainda faltam pagar (para exibir no A pagar)
   const c1b=CONTAS_BASE.ciclo1.filter(c=>!isContaQuitada(c));
   const c2b=CONTAS_BASE.ciclo2.filter(c=>!isContaQuitada(c));
   const totalContasFalta=[...c1b,...c2b].reduce((s,c)=>s+getValConta(c),0);
 
-  // Variáveis: quanto já foi gasto e quanto resta do orçamento
+  // Variáveis
+  const VAR_ORC_MERC=3000, VAR_ORC_GAS=800, VAR_ORC_PET=380;
   const gastos2=getData('gastos',[]);
   const gMerc=gastos2.filter(g=>g.cat==='mercado').reduce((s,g)=>s+g.val,0);
   const gGas=gastos2.filter(g=>g.cat==='gasolina').reduce((s,g)=>s+g.val,0);
   const gPet=gastos2.filter(g=>g.cat==='pet').reduce((s,g)=>s+g.val,0);
-  // Restante do orçamento variável (se extrapolou, conta o excesso)
-  const varRestante=Math.max(0,3000-gMerc)+Math.max(0,800-gGas)+Math.max(0,380-gPet);
-  const varExtrapolou=Math.max(0,gMerc-3000)+Math.max(0,gGas-800)+Math.max(0,gPet-380);
+  const varRestante=Math.max(0,VAR_ORC_MERC-gMerc)+Math.max(0,VAR_ORC_GAS-gGas)+Math.max(0,VAR_ORC_PET-gPet);
+  const varExtrapolou=Math.max(0,gMerc-VAR_ORC_MERC)+Math.max(0,gGas-VAR_ORC_GAS)+Math.max(0,gPet-VAR_ORC_PET);
 
-  // A pagar = contas que faltam + variáveis restantes + o que extrapolou
+  // A pagar = contas que faltam + variáveis restantes + excesso variáveis
   const totalAPagar=totalContasFalta+varRestante+varExtrapolou;
 
-  // Livre = receita prevista - a pagar (sem reserva)
-  const livreReal=receitaPrevista-totalAPagar;
-  const livrePrevisto=livreReal; // para compatibilidade com alertas
+  // Receita que ainda falta entrar = prevista - já lançada como recebida
+  const recLanc=getData('receitas',[]);
+  const FIXED_TIPOS_REC=['salario','vanessa','consultoria_rec'];
+  const chaveToTipoRec={salario:'salario',vanessa:'vanessa',consultoria:'consultoria_rec'};
+  const fixasConf=getData('receitas_fixas',getRFixas());
+  let recEntrou=0;
+  Object.entries(fixasConf).forEach(([chave,f])=>{
+    if(f.aReceber)return;
+    const tipo=chaveToTipoRec[chave]||chave;
+    const recebido=recLanc.filter(r=>r.tipo===tipo&&FIXED_TIPOS_REC.includes(r.tipo)).reduce((a,r)=>a+r.val,0);
+    recEntrou+=Math.min(f.val,recebido);
+  });
+  const extrasEntrou=recLanc.filter(r=>!FIXED_TIPOS_REC.includes(r.tipo)).reduce((s,r)=>s+r.val,0);
+  const totalRecEntrou=recEntrou+extrasEntrou;
+  const faltaEntrar=receitaPrevista-totalRecEntrou;
+
+  // Livre = falta entrar - falta pagar
+  const livreReal=faltaEntrar-totalAPagar;
+  const livrePrevisto=livreReal;
 
   document.getElementById('p-rec').textContent=fmt(receitaPrevista);
   document.getElementById('p-desp').textContent=fmt(totalAPagar);
