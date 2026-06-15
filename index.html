@@ -516,7 +516,7 @@ function getNomeConta(c){const o=getData('nome_overrides',{});return o[c.id]!==u
 function isContaQuitada(c){
   const paid=getData('paid',{});
   // Conta simples (sem parcelas): quitada se marcada como paga
-  if(!c.parcTotal||c.parcTotal===0) return paid[c.id]===true;
+  if(!c.parcTotal||c.parcTotal===0) return !!paid[c.id];
   // Conta parcelada: quitada se atingiu o total de parcelas
   const marcadas=getData('parc_marcadas',{});
   const qtd=(marcadas[c.id]||0)+(paid[c.id]?1:0);
