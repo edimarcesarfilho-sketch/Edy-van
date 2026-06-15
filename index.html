@@ -924,7 +924,6 @@ function renderPainel(){
   const totalAPagar=totalContasFalta+varRestante+varExtrapolou;
 
   // Receita que ainda falta entrar = prevista - já lançada como recebida
-  const recLanc=getData('receitas',[]);
   const FIXED_TIPOS_REC=['salario','vanessa','consultoria_rec'];
   const chaveToTipoRec={salario:'salario',vanessa:'vanessa',consultoria:'consultoria_rec'};
   const fixasConf=getData('receitas_fixas',getRFixas());
