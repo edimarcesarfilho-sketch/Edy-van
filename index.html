@@ -488,6 +488,24 @@ function syncSave(path,val){setSyncStatus('saving');clearTimeout(saveTimer);save
 async function loadAllData(){
   setSyncStatus('saving');
   try{const s=await get(ref(db,'dados'));appData=s.exists()?s.val():{};}catch(e){console.error(e);}
+  // Restaurar paid['cond']=true para junho se condomínio foi marcado pago mas deletado
+  try{
+    const mes6=appData&&appData.mes6?appData.mes6:{};
+    const paid=mes6.paid||{};
+    // Se cond foi deletado de contas_ciclo1 mas estava pago, restaurar o paid
+    if(paid['cond']===undefined){
+      // Verificar se existe conta com id cond no Firebase
+      const ciclo1=mes6.contas_ciclo1||[];
+      const temCond=ciclo1.some(c=>c&&c.id==='cond');
+      if(!temCond&&ciclo1.length>0){
+        // contas_ciclo1 existe mas não tem cond — ele foi deletado. Restaurar paid=true
+        paid['cond']=true;
+        if(!appData.mes6)appData.mes6={};
+        appData.mes6.paid=paid;
+        syncSave('dados/mes6/paid',paid);
+      }
+    }
+  }catch(e){console.error('restore cond:',e);}
   setSyncStatus('ok');renderPainel();
 }
 onValue(ref(db,'dados'),(s)=>{
@@ -527,11 +545,16 @@ function getContas(ciclo){
 function getValConta(c){const o=getData('val_overrides',{});return o[c.id]!==undefined?o[c.id]:c.val;}
 function getNomeConta(c){const o=getData('nome_overrides',{});return o[c.id]!==undefined?o[c.id]:c.desc;}
 
+// isPagaMes: conta foi marcada como paga NESTE mês (sai do A pagar)
+function isPagaMes(c){
+  const paid=getData('paid',{});
+  return !!paid[c.id];
+}
 function isContaQuitada(c){
   const paid=getData('paid',{});
   // Conta simples (sem parcelas): quitada se marcada como paga
   if(!c.parcTotal||c.parcTotal===0) return !!paid[c.id];
-  // Conta parcelada: quitada se atingiu o total de parcelas
+  // Conta parcelada: quitada definitivamente se atingiu o total de parcelas
   const marcadas=getData('parc_marcadas',{});
   const qtd=(marcadas[c.id]||0)+(paid[c.id]?1:0);
   return qtd>=c.parcTotal;
@@ -920,9 +943,9 @@ function renderPainel(){
   // Receita prevista total = fixas + extras lançadas no mês
   const receitaPrevista=receitaFixas+extrasRec;
 
-  // Contas que ainda faltam pagar (para exibir no A pagar)
-  const c1b=CONTAS_BASE.ciclo1.filter(c=>!isContaQuitada(c));
-  const c2b=CONTAS_BASE.ciclo2.filter(c=>!isContaQuitada(c));
+  // Contas que ainda faltam pagar NESTE mês (usa isPagaMes, não isContaQuitada)
+  const c1b=CONTAS_BASE.ciclo1.filter(c=>!isPagaMes(c)&&!isContaQuitada(c));
+  const c2b=CONTAS_BASE.ciclo2.filter(c=>!isPagaMes(c)&&!isContaQuitada(c));
   const totalContasFalta=[...c1b,...c2b].reduce((s,c)=>s+getValConta(c),0);
 
   // Variáveis
@@ -980,7 +1003,7 @@ function renderPainel(){
 
   const paid=getData('paid',{});
   const todasContasBase=[...CONTAS_BASE.ciclo1,...CONTAS_BASE.ciclo2];
-  const totalPago=todasContasBase.filter(c=>isContaQuitada(c)).reduce((s,c)=>s+getValConta(c),0);
+  const totalPago=todasContasBase.filter(c=>isPagaMes(c)||isContaQuitada(c)).reduce((s,c)=>s+getValConta(c),0);
   const totalJ=todasContasBase.reduce((s,c)=>s+getValConta(c),0);
   const pct=totalJ>0?Math.round(totalPago/totalJ*100):0;
   document.getElementById('p-janela-status').innerHTML=`
