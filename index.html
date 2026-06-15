@@ -1072,7 +1072,11 @@ function renderPainel(){
 function renderPagar(){
   const paid=getData('paid',{});
   function makeList(contas,ciclo,containerId){
-    const ativas=contas.filter(c=>!isContaQuitada(c));
+    // Mostra todas as contas do mês: não pagas + pagas (com check). Remove só as definitivamente quitadas (todas parcelas concluídas em meses anteriores)
+    const ativas=contas.filter(c=>{
+      if(isPagaMes(c)) return true; // sempre mostra se paga nesse mês (com ✓)
+      return !isContaQuitada(c);    // remove só as definitivamente quitadas
+    });
     document.getElementById(containerId).innerHTML=ativas.length===0
       ?'<div class="gray" style="padding:8px 0;font-size:14px">Nenhuma conta neste ciclo</div>'
       :ativas.map((c,i)=>{
