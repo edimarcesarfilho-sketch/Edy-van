@@ -488,21 +488,22 @@ function syncSave(path,val){setSyncStatus('saving');clearTimeout(saveTimer);save
 async function loadAllData(){
   setSyncStatus('saving');
   try{const s=await get(ref(db,'dados'));appData=s.exists()?s.val():{};}catch(e){console.error(e);}
-  // Restaurar paid['cond']=true para junho se condomínio foi marcado pago mas deletado
+  // Restaurar condomínio se foi deletado do Firebase
   try{
     const mes6=appData&&appData.mes6?appData.mes6:{};
-    const paid=mes6.paid||{};
-    // Se cond foi deletado de contas_ciclo1 mas estava pago, restaurar o paid
-    if(paid['cond']===undefined){
-      // Verificar se existe conta com id cond no Firebase
-      const ciclo1=mes6.contas_ciclo1||[];
-      const temCond=ciclo1.some(c=>c&&c.id==='cond');
-      if(!temCond&&ciclo1.length>0){
-        // contas_ciclo1 existe mas não tem cond — ele foi deletado. Restaurar paid=true
-        paid['cond']=true;
+    const ciclo1=mes6.contas_ciclo1;
+    if(ciclo1&&Array.isArray(ciclo1)){
+      const limpo=ciclo1.filter(c=>c&&c.id);
+      const temCond=limpo.some(c=>c.id==='cond');
+      if(!temCond){
+        limpo.unshift({id:'cond',desc:'Condominio',val:965.39,dia:5,parcTotal:0,parcAtual:0});
         if(!appData.mes6)appData.mes6={};
-        appData.mes6.paid=paid;
-        syncSave('dados/mes6/paid',paid);
+        appData.mes6.contas_ciclo1=limpo;
+        syncSave('dados/mes6/contas_ciclo1',limpo);
+        const paid=mes6.paid||{};
+        if(!paid['cond']){paid['cond']=true;appData.mes6.paid=paid;syncSave('dados/mes6/paid',paid);}
+        const vo=mes6.val_overrides||{};
+        if(!vo['cond']){vo['cond']=989.49;appData.mes6.val_overrides=vo;syncSave('dados/mes6/val_overrides',vo);}
       }
     }
   }catch(e){console.error('restore cond:',e);}
