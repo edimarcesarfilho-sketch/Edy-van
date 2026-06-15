@@ -502,13 +502,27 @@ function getSemAtual(){const d=new Date().getDate();return d<=7?1:d<=14?2:d<=21?
 function getContas(ciclo){
   const base=CONTAS_BASE[ciclo];
   const saved=getData('contas_'+ciclo,null);
-  if(!saved)return base;
-  // Merge: use saved but apply any parc_overrides
   const po=getData('parc_overrides',{});
-  return saved.map(function(c){
+  if(!saved)return base;
+  // Merge: start with base, override with saved values, add any new saved contas
+  const baseIds=base.map(c=>c.id);
+  const savedIds=saved.map(c=>c.id);
+  // Keep all base contas (with saved overrides if available)
+  const merged=base.map(function(bc){
+    const sc=saved.find(s=>s.id===bc.id);
+    let c=sc?Object.assign({},bc,{val:sc.val,dia:sc.dia,parcTotal:sc.parcTotal,parcAtual:sc.parcAtual,desc:sc.desc||bc.desc}):bc;
     if(po[c.id]){c=Object.assign({},c,po[c.id]);}
     return c;
   });
+  // Add any extra contas in saved that aren't in base (user-added)
+  saved.forEach(function(sc){
+    if(!baseIds.includes(sc.id)){
+      let c=Object.assign({},sc);
+      if(po[c.id]){c=Object.assign({},c,po[c.id]);}
+      merged.push(c);
+    }
+  });
+  return merged;
 }
 function getValConta(c){const o=getData('val_overrides',{});return o[c.id]!==undefined?o[c.id]:c.val;}
 function getNomeConta(c){const o=getData('nome_overrides',{});return o[c.id]!==undefined?o[c.id]:c.desc;}
