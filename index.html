@@ -222,7 +222,7 @@ input:focus,select.form-sel:focus{border-color:#1D9E75}
         <label>Descrição <span style="font-weight:400;text-transform:none">(opcional)</span></label>
         <input type="text" id="poupa-desc" placeholder="ex: depósito mensal, reserva extra..." />
         <label>Valor (R$)</label>
-        <input type="number" id="poupa-val" placeholder="0,00" step="0.01" inputmode="decimal" style="font-size:22px;font-weight:700;text-align:center;padding:14px" />
+        <input type="text" id="poupa-val" placeholder="0,00" inputmode="decimal" style="font-size:22px;font-weight:700;text-align:center;padding:14px" />
         <button class="btn btn-green" onclick="lancarPoupanca()">Registrar depósito</button>
       </div>
       <div class="card">
@@ -313,7 +313,7 @@ input:focus,select.form-sel:focus{border-color:#1D9E75}
     <label>Descrição <span style="font-weight:400;text-transform:none">(opcional)</span></label>
     <input type="text" id="m-desc" placeholder="ex: compra semana, jingle campanha..." />
     <label>Valor (R$)</label>
-    <input type="number" id="m-val" placeholder="0,00" step="0.01" inputmode="decimal" style="font-size:22px;font-weight:700;text-align:center;padding:14px" />
+    <input type="text" id="m-val" placeholder="0,00" inputmode="decimal" style="font-size:22px;font-weight:700;text-align:center;padding:14px" />
     <button class="btn btn-green" onclick="confirmarLancar()">Registrar</button>
   </div>
 </div>
@@ -339,7 +339,7 @@ input:focus,select.form-sel:focus{border-color:#1D9E75}
     <label>Descrição</label>
     <input type="text" id="ac-desc" placeholder="ex: Plano de saúde..." />
     <label>Valor previsto (R$)</label>
-    <input type="number" id="ac-val" placeholder="0,00" step="0.01" inputmode="decimal" />
+    <input type="text" id="ac-val" placeholder="0,00" inputmode="decimal" />
     <label>Dia do vencimento</label>
     <input type="number" id="ac-dia" placeholder="ex: 20" min="1" max="31" />
     <label>Total de parcelas (deixe 0 se for fixo)</label>
@@ -357,10 +357,10 @@ input:focus,select.form-sel:focus{border-color:#1D9E75}
     <label>Descrição</label>
     <input type="text" id="adiv-desc" placeholder="ex: Pirueta, CEUMA..." />
     <label>Valor total (R$)</label>
-    <input type="number" id="adiv-val" placeholder="0,00 ou deixe em branco" step="0.01" inputmode="decimal" />
+    <input type="text" id="adiv-val" placeholder="0,00 ou deixe em branco" inputmode="decimal" />
     <div id="adiv-parcela-fields">
       <label>Parcela mensal (R$)</label>
-      <input type="number" id="adiv-parcela" placeholder="0,00" step="0.01" inputmode="decimal" />
+      <input type="text" id="adiv-parcela" placeholder="0,00" inputmode="decimal" />
       <label>Término previsto</label>
       <input type="text" id="adiv-termino" placeholder="ex: Dez/26, 2030..." />
     </div>
@@ -439,6 +439,7 @@ const CONTAS_BASE = {
     {id:'carro',desc:'Carro 01/48',val:2100,dia:12,parcTotal:48,parcAtual:1},
   ],
   ciclo2:[
+    {id:'planosaude',desc:'Plano de saúde temporário',val:1398.26,dia:16,parcTotal:2,parcAtual:0,fimMes:7},
     {id:'fogao',desc:'Fogão Roni 2/3',val:500,dia:16,parcTotal:3,parcAtual:2},
     {id:'luz',desc:'Luz',val:1361,dia:20,parcTotal:0,parcAtual:0},
     {id:'finapto',desc:'Financiamento Apto',val:2313.89,dia:20,parcTotal:0,parcAtual:0},
@@ -518,8 +519,33 @@ onValue(ref(db,'dados'),(s)=>{
 function fmt(v){return'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function getSemAtual(){const d=new Date().getDate();return d<=7?1:d<=14?2:d<=21?3:4;}
 
+// Aceita valores digitados em formato BR (1.234,56 / 1234,56 / 1.234 / 1234) ou US (1234.56)
+function parseValorBR(v){
+  if(v==null)return NaN;
+  let s=String(v).trim();
+  if(s==='')return NaN;
+  s=s.replace(/[^\d.,-]/g,'');
+  if(s===''||s==='-')return NaN;
+  const neg=s.startsWith('-');
+  if(neg)s=s.slice(1);
+  const hasComma=s.indexOf(',')!==-1;
+  const hasDot=s.indexOf('.')!==-1;
+  if(hasComma){
+    s=s.replace(/\./g,'').replace(',','.');
+  }else if(hasDot){
+    const partes=s.split('.');
+    const ult=partes[partes.length-1];
+    if(partes.length>1&&ult.length===3){s=partes.join('');}
+    else if(ult.length<=2){s=partes.slice(0,-1).join('')+'.'+ult;}
+    else{s=partes.join('');}
+  }
+  const n=parseFloat(s);
+  if(isNaN(n))return NaN;
+  return neg?-n:n;
+}
+
 function getContas(ciclo){
-  const base=CONTAS_BASE[ciclo];
+  const base=CONTAS_BASE[ciclo].filter(c=>!c.fimMes||mesSel<=c.fimMes);
   const saved=getData('contas_'+ciclo,null);
   const po=getData('parc_overrides',{});
   if(!saved)return base;
@@ -617,7 +643,7 @@ window.selCat=function(cat,el){
   }else{document.getElementById('m-orc-info').textContent='';}
 };
 window.confirmarLancar=function(){
-  const val=parseFloat(document.getElementById('m-val').value);
+  const val=parseValorBR(document.getElementById('m-val').value);
   if(!val||val<=0){alert('Informe um valor válido');return;}
   const desc=document.getElementById('m-desc').value.trim();
   if(tipoLancar==='gasto'){
@@ -638,21 +664,26 @@ window.confirmarLancar=function(){
 };
 
 // MODAL EDITAR GENÉRICO
+let editTipoAtual='text';
 function abrirEdit(titulo,label,valor,tipo,callback){
   document.getElementById('edit-title').textContent=titulo;
   document.getElementById('edit-label').textContent=label;
   const inp=document.getElementById('edit-input');
-  inp.type=tipo||'text';inp.value=valor||'';inp.step=tipo==='number'?'0.01':'';
-  inp.placeholder=tipo==='number'?'0,00':'';
-  if(tipo==='number')inp.setAttribute('inputmode','decimal');
+  editTipoAtual=tipo||'text';
+  inp.type=(tipo==='moeda')?'text':(tipo||'text');
+  inp.value=valor||'';
+  inp.step=tipo==='number'?'0.01':'';
+  inp.placeholder=(tipo==='number'||tipo==='moeda')?'0,00':'';
+  if(tipo==='number'||tipo==='moeda')inp.setAttribute('inputmode','decimal');
+  else inp.removeAttribute('inputmode');
   editCallback=callback;
   abreModal('modal-edit');
   setTimeout(()=>inp.focus(),300);
 }
 window.confirmarEdit=function(){
   const inp=document.getElementById('edit-input');
-  const val=inp.type==='number'?parseFloat(inp.value):inp.value.trim();
-  if(!val){alert('Informe um valor');return;}
+  const val=editTipoAtual==='moeda'?parseValorBR(inp.value):(inp.type==='number'?parseFloat(inp.value):inp.value.trim());
+  if(!val){alert('Informe um valor válido');return;}
   editCallback?.(val);
   fechaModal('modal-edit');
 };
@@ -665,7 +696,7 @@ window.editarNomeConta=function(contaId,nomeAtual){
   });
 };
 window.editarValConta=function(contaId,valAtual){
-  abrirEdit(`Editar valor`,'Valor (R$)',valAtual,'number',(novoVal)=>{
+  abrirEdit(`Editar valor`,'Valor (R$)',valAtual,'moeda',(novoVal)=>{
     const o=getData('val_overrides',{});o[contaId]=novoVal;setData('val_overrides',o);
     renderPagar();renderPainel();
   });
@@ -763,7 +794,7 @@ window.abrirAddConta=function(ciclo){
 };
 window.confirmarAddConta=function(){
   const desc=document.getElementById('ac-desc').value.trim();
-  const val=parseFloat(document.getElementById('ac-val').value);
+  const val=parseValorBR(document.getElementById('ac-val').value);
   const dia=parseInt(document.getElementById('ac-dia').value);
   const parcTotal=parseInt(document.getElementById('ac-total-parc').value)||0;
   if(!desc||!val||!dia){alert('Preencha descrição, valor e dia');return;}
@@ -790,11 +821,11 @@ window.abrirAddDivida=function(tipo){
 window.confirmarAddDivida=function(){
   const desc=document.getElementById('adiv-desc').value.trim();
   if(!desc){alert('Informe a descrição');return;}
-  const total=parseFloat(document.getElementById('adiv-val').value)||0;
+  const total=parseValorBR(document.getElementById('adiv-val').value)||0;
   const obs=document.getElementById('adiv-obs').value.trim();
   const id='d_'+Date.now();
   if(addDividaTipo==='parcela'){
-    const parcela=parseFloat(document.getElementById('adiv-parcela').value)||null;
+    const parcela=parseValorBR(document.getElementById('adiv-parcela').value)||null;
     const termino=document.getElementById('adiv-termino').value.trim();
     const divs=getGlobal('dividas_parcelas',DIVIDAS_PARCELAS_BASE);
     divs.push({id,desc,total,parcela,termino,obs,parcAtual:0,parcTotal:0});
@@ -809,7 +840,7 @@ window.confirmarAddDivida=function(){
 window.editarDivida=function(tipo,idx){
   const divs=tipo==='parcela'?getGlobal('dividas_parcelas',DIVIDAS_PARCELAS_BASE):getGlobal('dividas_paradas',DIVIDAS_PARADAS_BASE);
   const d=divs[idx];
-  abrirEdit(`Editar: ${d.desc}`,'Valor total (R$)',d.total,'number',(novoVal)=>{
+  abrirEdit(`Editar: ${d.desc}`,'Valor total (R$)',d.total,'moeda',(novoVal)=>{
     divs[idx].total=novoVal;
     tipo==='parcela'?setGlobal('dividas_parcelas',divs):setGlobal('dividas_paradas',divs);
     renderDividas();
@@ -827,7 +858,7 @@ window.removerRecFixa=function(chave){
 
 window.abrirAddRecFixa=function(){
   abrirEdit('Nova receita fixa','Nome da receita','','text',function(nome){
-    abrirEdit('Valor (R$)','Valor mensal',0,'number',function(val){
+    abrirEdit('Valor (R$)','Valor mensal',0,'moeda',function(val){
       const fixas=getRFixas();
       const chave='rec_'+Date.now();
       fixas[chave]={nome:nome,val:val,aReceber:false};
@@ -945,8 +976,8 @@ function renderPainel(){
   const receitaPrevista=receitaFixas+extrasRec;
 
   // Contas que ainda faltam pagar NESTE mês (usa isPagaMes, não isContaQuitada)
-  const c1b=CONTAS_BASE.ciclo1.filter(c=>!isPagaMes(c)&&!isContaQuitada(c));
-  const c2b=CONTAS_BASE.ciclo2.filter(c=>!isPagaMes(c)&&!isContaQuitada(c));
+  const c1b=getContas('ciclo1').filter(c=>!isPagaMes(c)&&!isContaQuitada(c));
+  const c2b=getContas('ciclo2').filter(c=>!isPagaMes(c)&&!isContaQuitada(c));
   const totalContasFalta=[...c1b,...c2b].reduce((s,c)=>s+getValConta(c),0);
 
   // Variáveis
@@ -1003,7 +1034,7 @@ function renderPainel(){
     <div class="bar-bg"><div class="bar-fill" style="width:${pctRec}%;background:#1D9E75"></div></div>`;
 
   const paid=getData('paid',{});
-  const todasContasBase=[...CONTAS_BASE.ciclo1,...CONTAS_BASE.ciclo2];
+  const todasContasBase=[...getContas('ciclo1'),...getContas('ciclo2')];
   const totalPago=todasContasBase.filter(c=>isPagaMes(c)||isContaQuitada(c)).reduce((s,c)=>s+getValConta(c),0);
   const totalJ=todasContasBase.reduce((s,c)=>s+getValConta(c),0);
   const pct=totalJ>0?Math.round(totalPago/totalJ*100):0;
@@ -1042,7 +1073,6 @@ function renderPainel(){
 
   // Alertas automáticos
   const al=[];
-  if(mesSel===7||mesSel===8)al.push({i:'ti-alert-triangle',c:'#BA7517',t:'Plano de saúde temporário: R$ 1.100 neste mês'});
   if(mesSel<=7)al.push({i:'ti-check',c:'#1D9E75',t:'Consultoria recorrente R$ 3.500 ativa até Out/26'});
   if(mesSel===7){const paid=getData('paid',{});if(!paid['fogao'])al.push({i:'ti-star',c:'#1D9E75',t:'Fogão Roni: última parcela! Marque como pago.'});}
   if(mesSel===9){const paid=getData('paid',{});if(!paid['negcond'])al.push({i:'ti-star',c:'#1D9E75',t:'Neg. Cond. Jardim Toscana: última parcela!'});}
@@ -1172,7 +1202,7 @@ window.editarRecFixa=function(chave,campo){
   if(campo==='nome'){
     abrirEdit('Editar nome','Nome',item.nome,'text',(v)=>{fixas[chave].nome=v;setData('rec_fixas',fixas);renderReceitas();renderPainel();});
   }else{
-    abrirEdit('Editar valor: '+item.nome,'Valor (R$)',item.val,'number',(v)=>{fixas[chave].val=v;setData('rec_fixas',fixas);renderReceitas();renderPainel();});
+    abrirEdit('Editar valor: '+item.nome,'Valor (R$)',item.val,'moeda',(v)=>{fixas[chave].val=v;setData('rec_fixas',fixas);renderReceitas();renderPainel();});
   }
 };
 function renderReceitas(){
@@ -1259,7 +1289,7 @@ function renderParcelas(){
 
   const alivios=[
     {mes:'Jul/26',desc:'Fogão Roni quitado',eco:500,tipo:'green'},
-    {mes:'Ago/26',desc:'Plano de saúde temporário encerra',eco:1100,tipo:'green'},
+    {mes:'Jul/26',desc:'Plano de saúde temporário encerra',eco:1398.26,tipo:'green'},
     {mes:'Out/26',desc:'Neg. Cond. Jardim Toscana quitada',eco:770,tipo:'green'},
     {mes:'Out/26',desc:'Consultoria recorrente encerra (−R$3.500 receita)',eco:0,tipo:'amber'},
     {mes:'Dez/26',desc:'Viagem Selena quitada',eco:730,tipo:'green'},
@@ -1437,7 +1467,7 @@ function renderChartParcelas(){
 
 // POUPANÇA
 window.lancarPoupanca=function(){
-  const val=parseFloat(document.getElementById('poupa-val').value);
+  const val=parseValorBR(document.getElementById('poupa-val').value);
   if(!val||val<=0){alert('Informe um valor válido');return;}
   const desc=document.getElementById('poupa-desc').value.trim()||'Depósito';
   const lista=getGlobal('poupanca',[]);
