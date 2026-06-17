@@ -186,6 +186,7 @@ input:focus,select.form-sel:focus{border-color:#1D9E75}
     </div>
     <div id="lanc-gastos-view">
       <div class="card"><div class="card-title">Resumo por categoria</div><div id="resumo-cats"></div></div>
+      <div class="card" id="resumo-cartao-card" style="display:none"><div class="card-title">Pago no cartão este mês</div><div id="resumo-cartao"></div></div>
       <div class="card"><div class="card-title">Histórico de gastos</div><div id="todos-lanc"></div></div>
       <div class="card">
         <div class="card-title">Almoço Selena</div>
@@ -298,6 +299,12 @@ input:focus,select.form-sel:focus{border-color:#1D9E75}
         <div class="cat-btn" onclick="selCat('outro',this)"><i class="ti ti-dots"></i><span>Outro</span></div>
       </div>
       <div id="m-orc-info" style="font-size:13px;color:#aaa;text-align:center;margin-bottom:10px;min-height:16px"></div>
+      <label>Forma de pagamento</label>
+      <select class="form-sel" id="m-pag">
+        <option value="">Dinheiro / Pix / Débito</option>
+        <option value="nubank">Cartão de crédito Nubank</option>
+        <option value="itau">Cartão de crédito Itaú</option>
+      </select>
     </div>
     <div id="form-receita" style="display:none">
       <label>Tipo</label>
@@ -618,6 +625,7 @@ window.abrirModalLancar=window._abrirModalLancar=function(){
   document.getElementById('m-desc').value='';
   document.getElementById('m-val').value='';
   document.getElementById('m-orc-info').textContent='';
+  document.getElementById('m-pag').value='';
   setTipo('gasto');
   abreModal('modal-lancar');
   setTimeout(()=>document.getElementById('m-val').focus(),300);
@@ -635,7 +643,7 @@ window.selCat=function(cat,el){
   el.classList.add('selected');
   const c=CATS[cat];
   if(c.orcamento){
-    const g=getData('gastos',[]).filter(x=>x.cat===cat).reduce((s,x)=>s+x.val,0);
+    const g=getData('gastos',[]).filter(x=>x.cat===cat&&!x.pag).reduce((s,x)=>s+x.val,0);
     const r=c.orcamento-g;
     document.getElementById('m-orc-info').innerHTML=r>0
       ?`<span style="color:#1D9E75">Disponível: ${fmt(r)} de ${fmt(c.orcamento)}</span>`
@@ -648,8 +656,9 @@ window.confirmarLancar=function(){
   const desc=document.getElementById('m-desc').value.trim();
   if(tipoLancar==='gasto'){
     if(!catSel){alert('Selecione uma categoria');return;}
+    const pag=document.getElementById('m-pag').value;
     const gastos=getData('gastos',[]);
-    gastos.push({cat:catSel,desc:desc||CATS[catSel].label,val,sem:getSemAtual(),dt:new Date().toLocaleDateString('pt-BR'),hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
+    gastos.push({cat:catSel,desc:desc||CATS[catSel].label,val,pag,sem:getSemAtual(),dt:new Date().toLocaleDateString('pt-BR'),hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
     setData('gastos',gastos);
   }else{
     const tipo=document.getElementById('m-rec-tipo').value;
@@ -983,9 +992,9 @@ function renderPainel(){
   // Variáveis
   const VAR_ORC_MERC=3000, VAR_ORC_GAS=800, VAR_ORC_PET=380;
   const gastos2=getData('gastos',[]);
-  const gMerc=gastos2.filter(g=>g.cat==='mercado').reduce((s,g)=>s+g.val,0);
-  const gGas=gastos2.filter(g=>g.cat==='gasolina').reduce((s,g)=>s+g.val,0);
-  const gPet=gastos2.filter(g=>g.cat==='pet').reduce((s,g)=>s+g.val,0);
+  const gMerc=gastos2.filter(g=>g.cat==='mercado'&&!g.pag).reduce((s,g)=>s+g.val,0);
+  const gGas=gastos2.filter(g=>g.cat==='gasolina'&&!g.pag).reduce((s,g)=>s+g.val,0);
+  const gPet=gastos2.filter(g=>g.cat==='pet'&&!g.pag).reduce((s,g)=>s+g.val,0);
   const varRestante=Math.max(0,VAR_ORC_MERC-gMerc)+Math.max(0,VAR_ORC_GAS-gGas)+Math.max(0,VAR_ORC_PET-gPet);
   const varExtrapolou=Math.max(0,gMerc-VAR_ORC_MERC)+Math.max(0,gGas-VAR_ORC_GAS)+Math.max(0,gPet-VAR_ORC_PET);
 
@@ -1048,7 +1057,7 @@ function renderPainel(){
   let varHTML='';
   ['mercado','gasolina','pet'].forEach(cat=>{
     const c=CATS[cat];
-    const g=gastos.filter(x=>x.cat===cat).reduce((s,x)=>s+x.val,0);
+    const g=gastos.filter(x=>x.cat===cat&&!x.pag).reduce((s,x)=>s+x.val,0);
     const p2=Math.min(100,Math.round(g/c.orcamento*100));
     const cor=p2>100?'#E24B4A':p2>80?'#BA7517':c.cor;
     varHTML+=`<div style="margin-bottom:10px">
@@ -1062,7 +1071,7 @@ function renderPainel(){
   document.getElementById('p-variaveis-status').innerHTML=varHTML;
 
   const sem=getSemAtual();
-  const gSem=gastos.filter(g=>g.sem===sem&&(g.cat==='mercado'||g.cat==='gasolina')).reduce((s,g)=>s+g.val,0);
+  const gSem=gastos.filter(g=>g.sem===sem&&!g.pag&&(g.cat==='mercado'||g.cat==='gasolina')).reduce((s,g)=>s+g.val,0);
   const pS=Math.min(100,Math.round(gSem/800*100));
   const corS=pS>90?'#E24B4A':pS>70?'#BA7517':'#185FA5';
   document.getElementById('p-semana-status').innerHTML=`
@@ -1145,7 +1154,12 @@ function renderPagar(){
 function renderGastos(){
   const gastos=getData('gastos',[]);
   const porCat={};
-  gastos.forEach(g=>{if(!porCat[g.cat])porCat[g.cat]=0;porCat[g.cat]+=g.val;});
+  const CAT_ORC=['mercado','gasolina','pet'];
+  gastos.forEach(g=>{
+    if(g.pag&&CAT_ORC.includes(g.cat))return;
+    if(!porCat[g.cat])porCat[g.cat]=0;
+    porCat[g.cat]+=g.val;
+  });
   let resumo=Object.keys(porCat).length===0
     ?'<div class="gray" style="padding:8px 0;font-size:14px">Nenhum gasto ainda. Use o + para lançar!</div>'
     :Object.entries(porCat).sort((a,b)=>b[1]-a[1]).map(([cat,total])=>{
@@ -1162,16 +1176,28 @@ function renderGastos(){
       }).join('');
   document.getElementById('resumo-cats').innerHTML=resumo;
 
+  const porCartao={nubank:0,itau:0};
+  gastos.forEach(g=>{if(g.pag==='nubank'||g.pag==='itau')porCartao[g.pag]+=g.val;});
+  const totalCartao=porCartao.nubank+porCartao.itau;
+  document.getElementById('resumo-cartao-card').style.display=totalCartao>0?'':'none';
+  if(totalCartao>0){
+    document.getElementById('resumo-cartao').innerHTML=`
+      ${porCartao.nubank>0?`<div class="row"><span style="display:flex;align-items:center;gap:8px"><i class="ti ti-credit-card" style="font-size:17px;color:#820AD1"></i>Nubank</span><span style="font-weight:700">${fmt(porCartao.nubank)}</span></div>`:''}
+      ${porCartao.itau>0?`<div class="row"><span style="display:flex;align-items:center;gap:8px"><i class="ti ti-credit-card" style="font-size:17px;color:#EC7000"></i>Itaú</span><span style="font-weight:700">${fmt(porCartao.itau)}</span></div>`:''}
+      <div class="gray" style="font-size:12px;margin-top:6px">Esses valores não entram no orçamento de Mercado/Gasolina/Pet — somam direto na fatura do cartão quando ela chegar.</div>`;
+  }
+
   const sorted=[...gastos].reverse();
   document.getElementById('todos-lanc').innerHTML=sorted.length===0
     ?'<div class="gray" style="padding:8px 0;font-size:14px">Nenhum lançamento ainda</div>'
     :sorted.map((g,i)=>{
         const c=CATS[g.cat]||{label:g.cat,icon:'ti-dots',cor:'#888'};
         const realIdx=gastos.length-1-i;
+        const tagCartao=g.pag==='nubank'?'<span style="color:#820AD1"> · 💳 Nubank</span>':g.pag==='itau'?'<span style="color:#EC7000"> · 💳 Itaú</span>':'';
         return`<div class="row">
           <div style="display:flex;align-items:center;gap:8px">
             <i class="ti ${c.icon}" style="font-size:17px;color:${c.cor}"></i>
-            <div><div style="font-weight:500">${g.desc}</div><div style="font-size:12px;color:#aaa">${g.dt}${g.hora?' · '+g.hora:''} · Sem.${g.sem}</div></div>
+            <div><div style="font-weight:500">${g.desc}</div><div style="font-size:12px;color:#aaa">${g.dt}${g.hora?' · '+g.hora:''} · Sem.${g.sem}${tagCartao}</div></div>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-weight:700">${fmt(g.val)}</span>
