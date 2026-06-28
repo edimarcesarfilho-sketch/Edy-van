@@ -508,9 +508,12 @@ async function loadAllData(){
     const keys=appData.mes6?Object.keys(appData.mes6):[];
     const gastos=appData.mes6?.gastos;
     const nGastos=Array.isArray(gastos)?gastos.length:(gastos&&typeof gastos==='object'?Object.keys(gastos).length:0);
-    document.title=`Edy&Van — mes6 keys: ${keys.length}, gastos: ${nGastos}`;
+    const poupanca=appData.poupanca;
+    const nPoupa=Array.isArray(poupanca)?poupanca.length:(poupanca&&typeof poupanca==='object'?Object.keys(poupanca).length:0);
+    const msg=`Firebase OK — mes6 keys: ${keys.join(',')||'nenhuma'} | gastos: ${nGastos} | poupanca: ${nPoupa}`;
+    setTimeout(()=>alert(msg),500);
   }catch(e){
-    document.title=`ERRO Firebase: ${e.message}`;
+    setTimeout(()=>alert('ERRO Firebase: '+e.message),500);
   }
   setSyncStatus('ok');renderPainel();
 }
