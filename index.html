@@ -487,7 +487,13 @@ let editCallback=null, addContaCiclo='ciclo1', addDividaTipo='parcela';
 
 function setSyncStatus(s){const d=document.getElementById('sync-dot');d.className='sync-dot '+(s==='ok'?'ok':'saving');}
 function sk(k){return`dados/mes${mesSel}/${k}`;}
-function getData(k,d){return structuredClone(appData[`mes${mesSel}`]?.[k]??d);}
+function getData(k,d){
+  let v=appData[`mes${mesSel}`]?.[k];
+  if(v===undefined||v===null)return structuredClone(d);
+  // Firebase pode converter arrays em objetos — normalizar
+  if(Array.isArray(d)&&v!==null&&!Array.isArray(v)&&typeof v==='object')v=Object.values(v).filter(x=>x!=null);
+  return structuredClone(v);
+}
 function setData(k,v){if(!appData[`mes${mesSel}`])appData[`mes${mesSel}`]={};appData[`mes${mesSel}`][k]=v;syncSave(sk(k),v);}
 function getGlobal(k,d){return structuredClone(appData[k]??d);}
 function setGlobal(k,v){appData[k]=v;syncSave(`dados/${k}`,v);}
@@ -495,26 +501,17 @@ function syncSave(path,val){setSyncStatus('saving');clearTimeout(saveTimer);save
 
 async function loadAllData(){
   setSyncStatus('saving');
-  try{const s=await get(ref(db,'dados'));appData=s.exists()?s.val():{};}catch(e){console.error(e);}
-  // Restaurar condomínio se foi deletado do Firebase
   try{
-    const mes6=appData&&appData.mes6?appData.mes6:{};
-    const ciclo1=mes6.contas_ciclo1;
-    if(ciclo1&&Array.isArray(ciclo1)){
-      const limpo=ciclo1.filter(c=>c&&c.id);
-      const temCond=limpo.some(c=>c.id==='cond');
-      if(!temCond){
-        limpo.unshift({id:'cond',desc:'Condominio',val:965.39,dia:5,parcTotal:0,parcAtual:0});
-        if(!appData.mes6)appData.mes6={};
-        appData.mes6.contas_ciclo1=limpo;
-        syncSave('dados/mes6/contas_ciclo1',limpo);
-        const paid=mes6.paid||{};
-        if(!paid['cond']){paid['cond']=true;appData.mes6.paid=paid;syncSave('dados/mes6/paid',paid);}
-        const vo=mes6.val_overrides||{};
-        if(!vo['cond']){vo['cond']=989.49;appData.mes6.val_overrides=vo;syncSave('dados/mes6/val_overrides',vo);}
-      }
-    }
-  }catch(e){console.error('restore cond:',e);}
+    const s=await get(ref(db,'dados'));
+    appData=s.exists()?s.val():{};
+    // Diagnóstico visual temporário
+    const keys=appData.mes6?Object.keys(appData.mes6):[];
+    const gastos=appData.mes6?.gastos;
+    const nGastos=Array.isArray(gastos)?gastos.length:(gastos&&typeof gastos==='object'?Object.keys(gastos).length:0);
+    document.title=`Edy&Van — mes6 keys: ${keys.length}, gastos: ${nGastos}`;
+  }catch(e){
+    document.title=`ERRO Firebase: ${e.message}`;
+  }
   setSyncStatus('ok');renderPainel();
 }
 onValue(ref(db,'dados'),(s)=>{
@@ -553,7 +550,9 @@ function parseValorBR(v){
 
 function getContas(ciclo){
   const base=CONTAS_BASE[ciclo].filter(c=>!c.fimMes||mesSel<=c.fimMes);
-  const saved=getData('contas_'+ciclo,null);
+  let saved=getData('contas_'+ciclo,null);
+  // Firebase pode converter array em objeto — garantir que é array
+  if(saved&&!Array.isArray(saved))saved=Object.values(saved).filter(Boolean);
   const po=getData('parc_overrides',{});
   if(!saved)return base;
   // Merge: start with base, override with saved values, add any new saved contas
