@@ -501,20 +501,7 @@ function syncSave(path,val){setSyncStatus('saving');clearTimeout(saveTimer);save
 
 async function loadAllData(){
   setSyncStatus('saving');
-  try{
-    const s=await get(ref(db,'dados'));
-    appData=s.exists()?s.val():{};
-    // Diagnóstico visual temporário
-    const keys=appData.mes6?Object.keys(appData.mes6):[];
-    const gastos=appData.mes6?.gastos;
-    const nGastos=Array.isArray(gastos)?gastos.length:(gastos&&typeof gastos==='object'?Object.keys(gastos).length:0);
-    const poupanca=appData.poupanca;
-    const nPoupa=Array.isArray(poupanca)?poupanca.length:(poupanca&&typeof poupanca==='object'?Object.keys(poupanca).length:0);
-    const msg=`Firebase OK — mes6 keys: ${keys.join(',')||'nenhuma'} | gastos: ${nGastos} | poupanca: ${nPoupa}`;
-    setTimeout(()=>alert(msg),500);
-  }catch(e){
-    setTimeout(()=>alert('ERRO Firebase: '+e.message),500);
-  }
+  try{const s=await get(ref(db,'dados'));appData=s.exists()?s.val():{};}catch(e){console.error(e);}
   setSyncStatus('ok');renderPainel();
 }
 onValue(ref(db,'dados'),(s)=>{
