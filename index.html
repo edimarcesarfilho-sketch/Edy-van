@@ -1560,7 +1560,19 @@ function renderPoupanca(){
       }).join('');
 }
 
-const renders={painel:renderPainel,pagar:renderPagar,lancamentos:renderGastos,previsao:renderParcelas};
+// FIX 4: a página "Lançamentos" tem 3 abas internas (Gastos/Receitas/Poupança),
+// mas qualquer atualização (nova receita, sync do Firebase, etc.) sempre
+// redesenhava só a aba Gastos, mesmo com Receitas ou Poupança na tela. Por
+// isso o "Recebido" das receitas fixas só atualizava se você saísse da aba e
+// voltasse manualmente. Agora detecta qual aba está realmente visível.
+function renderLancamentosAtivo(){
+  const vReceitas=document.getElementById('lanc-receitas-view');
+  const vPoupanca=document.getElementById('lanc-poupanca-view');
+  if(vReceitas&&vReceitas.style.display!=='none')renderReceitas();
+  else if(vPoupanca&&vPoupanca.style.display!=='none')renderPoupanca();
+  else renderGastos();
+}
+const renders={painel:renderPainel,pagar:renderPagar,lancamentos:renderLancamentosAtivo,previsao:renderParcelas};
 
 loadAllData();
 </script>
