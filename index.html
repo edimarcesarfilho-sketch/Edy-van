@@ -556,6 +556,20 @@ function parseValorBR(v){
   return neg?-n:n;
 }
 
+// FIX 5: receitas fixas criadas pelo botão "+ Adicionar receita fixa" ganham
+// uma chave genérica (rec_<timestamp>), que não bate com os tipos fixos do
+// modal "Lançar" (salario, vanessa, consultoria_rec...). Isso fazia o
+// "Recebido" nunca casar mesmo com o nome idêntico. Essa função reconhece o
+// tipo pelo NOME digitado, então funciona mesmo em registros já existentes.
+function inferTipoDeNome(nome){
+  const s=(nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z]/g,'');
+  if(s.includes('salario'))return 'salario';
+  if(s.includes('vanessa'))return 'vanessa';
+  if(s.includes('consultoriarecorrente'))return 'consultoria_rec';
+  if(s.includes('consultoriapolitica'))return 'consultoria';
+  return null;
+}
+
 function getContas(ciclo){
   const base=CONTAS_BASE[ciclo].filter(c=>!c.fimMes||mesSel<=c.fimMes);
   let saved=getData('contas_'+ciclo,null);
@@ -1019,7 +1033,7 @@ function renderPainel(){
   // Receita que já entrou
   const chaveToTipoMap={salario:'salario',vanessa:'vanessa',consultoria:'consultoria_rec',politica:'consultoria'};
   const recEntrou=Object.entries(fixasAtual).filter(([,f])=>!f.aReceber).reduce((s,[chave,f])=>{
-    const tipo=chaveToTipoMap[chave]||chave;
+    const tipo=chaveToTipoMap[chave]||inferTipoDeNome(f.nome)||chave;
     const recebido=recLanc.filter(r=>r.tipo===tipo&&FIXED_TIPOS.includes(r.tipo)).reduce((a,r)=>a+r.val,0);
     return s+Math.min(f.val,recebido);
   },0);
@@ -1258,7 +1272,7 @@ function renderReceitas(){
   const chaveToTipoCalc={salario:'salario',vanessa:'vanessa',consultoria:'consultoria_rec',politica:'consultoria'};
   // Total realmente recebido = soma do que foi lançado de fixas + extras
   const totalFixasRecebido=Object.entries(fixas).filter(([,f])=>!f.aReceber).reduce((s,[chave,f])=>{
-    const tipo=chaveToTipoCalc[chave]||chave;
+    const tipo=chaveToTipoCalc[chave]||inferTipoDeNome(f.nome)||chave;
     const recebido=recLancadas.filter(r=>r.tipo===tipo).reduce((a,r)=>a+r.val,0);
     return s+Math.min(f.val,recebido);
   },0);
@@ -1270,7 +1284,7 @@ function renderReceitas(){
   var chaveToTipo={salario:'salario',vanessa:'vanessa',consultoria:'consultoria_rec',politica:'consultoria'};
   document.getElementById('r-fixas').innerHTML=Object.entries(fixas).map(function(entry){
     var chave=entry[0],item=entry[1];
-    var tipo=chaveToTipo[chave]||chave;
+    var tipo=chaveToTipo[chave]||inferTipoDeNome(item.nome)||chave;
     var recebido=recLancadas.filter(function(r){return r.tipo===tipo;}).reduce(function(s,r){return s+r.val;},0);
     var falta=Math.max(0,item.val-recebido);
     var pct=item.val>0?Math.min(100,Math.round(recebido/item.val*100)):0;
