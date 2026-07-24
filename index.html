@@ -571,7 +571,13 @@ function inferTipoDeNome(nome){
 }
 
 function getContas(ciclo){
-  const base=CONTAS_BASE[ciclo].filter(c=>!c.fimMes||mesSel<=c.fimMes);
+  // FIX 6: contas fixas base (Condomínio, Dízimo, etc.) vêm de uma lista
+  // fixa no código. Antes, apagar uma delas não "grudava" — a cada
+  // recálculo o app somava a lista fixa completa de novo por cima. Agora
+  // existe uma lista real de "removidas naquele mês/ciclo" que é sempre
+  // respeitada.
+  const removidos=getData('contas_removidas_'+ciclo,[]);
+  const base=CONTAS_BASE[ciclo].filter(c=>(!c.fimMes||mesSel<=c.fimMes)&&!removidos.includes(c.id));
   let saved=getData('contas_'+ciclo,null);
   // Firebase pode converter array em objeto — garantir que é array
   if(saved&&!Array.isArray(saved))saved=Object.values(saved).filter(Boolean);
@@ -587,15 +593,16 @@ function getContas(ciclo){
     if(po[c.id]){c=Object.assign({},c,po[c.id]);}
     return c;
   });
-  // Add any extra contas in saved that aren't in base (user-added)
+  // Add any extra contas in saved that aren't in base (user-added) and not removed
   saved.forEach(function(sc){
-    if(!baseIds.includes(sc.id)){
+    if(!baseIds.includes(sc.id)&&!removidos.includes(sc.id)){
       let c=Object.assign({},sc);
       if(po[c.id]){c=Object.assign({},c,po[c.id]);}
       merged.push(c);
     }
   });
   return merged;
+
 }
 function getValConta(c){const o=getData('val_overrides',{});return o[c.id]!==undefined?o[c.id]:c.val;}
 function getNomeConta(c){const o=getData('nome_overrides',{});return o[c.id]!==undefined?o[c.id]:c.desc;}
@@ -841,8 +848,22 @@ window.confirmarAddConta=function(){
 };
 window.removerConta=function(ciclo,idx){
   if(!confirm('Remover esta conta?'))return;
-  const contas=getContas(ciclo);contas.splice(idx,1);
-  setData(`contas_${ciclo}`,contas);renderPagar();renderPainel();
+  const contas=getContas(ciclo);
+  const c=contas[idx];
+  const ehContaBase=CONTAS_BASE[ciclo].some(bc=>bc.id===c.id);
+  if(ehContaBase){
+    // Conta fixa do código: marca como removida nesse mês/ciclo, em vez de
+    // só tirar de uma lista que seria sobrescrita no próximo recálculo.
+    const removidos=getData('contas_removidas_'+ciclo,[]);
+    if(!removidos.includes(c.id))removidos.push(c.id);
+    setData('contas_removidas_'+ciclo,removidos);
+  }else{
+    // Conta adicionada manualmente pelo usuário: remove da lista salva
+    let saved=getData('contas_'+ciclo,[]);
+    if(saved&&!Array.isArray(saved))saved=Object.values(saved).filter(Boolean);
+    setData('contas_'+ciclo,(saved||[]).filter(s=>s.id!==c.id));
+  }
+  renderPagar();renderPainel();
 };
 
 // DÍVIDAS
