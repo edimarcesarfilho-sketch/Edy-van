@@ -263,13 +263,14 @@ input:focus,select.form-sel:focus{border-color:#1D9E75}
           <span style="font-weight:700;color:#185FA5">R$ 2.100/mês</span>
         </div>
         <div class="row">
-          <div><div style="font-weight:600">Financiamento Apto — Caixa</div><div style="font-size:12px;color:#aaa">292 parcelas · ~24 anos</div></div>
-          <span style="font-weight:700;color:#185FA5">R$ 2.313,89/mês</span>
+          <div><div style="font-weight:600">Financiamento Apto — Caixa</div><div style="font-size:12px;color:#aaa">289 parcelas restantes · saldo devedor R$ 329.813,13</div></div>
+          <span style="font-weight:700;color:#185FA5">R$ 2.464,87/mês</span>
         </div>
         <div style="margin-top:10px">
-          <div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;margin-bottom:4px"><span>Progresso apto</span><span>19% (68/360)</span></div>
-          <div class="bar-bg"><div class="bar-fill" style="width:19%;background:#1D9E75"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;margin-bottom:4px"><span>Progresso apto</span><span>20% (71/360)</span></div>
+          <div class="bar-bg"><div class="bar-fill" style="width:20%;background:#1D9E75"></div></div>
         </div>
+        <div style="font-size:12px;color:#aaa;margin-top:6px">Em dias, sem atraso · vence dia 20</div>
       </div>
       <div class="metric"><div class="lbl">Total dívidas mapeadas</div><div class="val red" id="div-total">—</div></div>
     </div>
@@ -442,26 +443,22 @@ const CONTAS_BASE = {
     {id:'cond',desc:'Condomínio',val:965.39,dia:5,parcTotal:0,parcAtual:0},
     {id:'tel',desc:'Telefone',val:392.89,dia:10,parcTotal:0,parcAtual:0},
     {id:'pos',desc:'Pós Edimar',val:505.41,dia:10,parcTotal:0,parcAtual:0},
-    {id:'plan',desc:'Planejador financeiro',val:450,dia:10,parcTotal:0,parcAtual:0},
     {id:'carro',desc:'Carro 01/48',val:2100,dia:12,parcTotal:48,parcAtual:1},
   ],
   ciclo2:[
-    {id:'planosaude',desc:'Plano de saúde temporário',val:1398.26,dia:16,parcTotal:2,parcAtual:0,fimMes:7},
-    {id:'fogao',desc:'Fogão Roni 2/3',val:500,dia:16,parcTotal:3,parcAtual:2},
     {id:'luz',desc:'Luz',val:1361,dia:20,parcTotal:0,parcAtual:0},
-    {id:'finapto',desc:'Financiamento Apto',val:2313.89,dia:20,parcTotal:0,parcAtual:0},
+    {id:'finapto',desc:'Financiamento Apto',val:2464.87,dia:20,parcTotal:0,parcAtual:0},
     {id:'psico',desc:'Psicóloga',val:1280,dia:20,parcTotal:0,parcAtual:0},
     {id:'nubank',desc:'Nubank Vanessa',val:1200,dia:20,parcTotal:0,parcAtual:0},
     {id:'itau',desc:'Itaú Vanessa',val:511.81,dia:20,parcTotal:0,parcAtual:0},
     {id:'diarista',desc:'Diarista',val:640,dia:20,parcTotal:0,parcAtual:0},
     {id:'stream',desc:'Streaming',val:80,dia:20,parcTotal:0,parcAtual:0},
-    {id:'dizimo',desc:'Dízimo',val:500,dia:20,parcTotal:0,parcAtual:0},
-    {id:'roni',desc:'Cartão Roni',val:500,dia:20,parcTotal:0,parcAtual:0},
+    {id:'roni',desc:'Cartão Roni',val:392.60,dia:20,parcTotal:0,parcAtual:0},
     {id:'simone',desc:'Simone',val:600,dia:21,parcTotal:0,parcAtual:0},
-    {id:'negcond',desc:'Neg. Cond. Jardim Toscana 1/5',val:770.10,dia:22,parcTotal:5,parcAtual:1},
-    {id:'negtiau',desc:'Neg. Itaú 9/61',val:365.08,dia:27,parcTotal:61,parcAtual:9},
+    {id:'negcond',desc:'Neg. Cond. Jardim Toscana',val:770.10,dia:22,parcTotal:3,parcAtual:1},
+    {id:'negtiau',desc:'Neg. Itaú 12/61',val:365.08,dia:27,parcTotal:61,parcAtual:12},
     {id:'internet',desc:'Internet',val:182.26,dia:20,parcTotal:0,parcAtual:0},
-    {id:'viagem_sel_c',desc:'Viagem Selena 1/6',val:729.85,dia:21,parcTotal:6,parcAtual:1},
+    {id:'viagem_sel_c',desc:'Viagem Selena',val:729.85,dia:21,parcTotal:7,parcAtual:3},
   ]
 };
 
@@ -1133,7 +1130,6 @@ function renderPainel(){
   // Alertas automáticos
   const al=[];
   if(mesSel<=7)al.push({i:'ti-check',c:'#1D9E75',t:'Consultoria recorrente R$ 3.500 ativa até Out/26'});
-  if(mesSel===7){const paid=getData('paid',{});if(!paid['fogao'])al.push({i:'ti-star',c:'#1D9E75',t:'Fogão Roni: última parcela! Marque como pago.'});}
   if(mesSel===9){const paid=getData('paid',{});if(!paid['negcond'])al.push({i:'ti-star',c:'#1D9E75',t:'Neg. Cond. Jardim Toscana: última parcela!'});}
   if(mesSel===10)al.push({i:'ti-alert-triangle',c:'#BA7517',t:'Consultoria recorrente encerra — receita cai R$ 3.500'});
   const temPirueta=getGlobal('dividas_paradas',DIVIDAS_PARADAS_BASE).some(d=>d.id==='pirueta'&&d.total>0);
@@ -1347,11 +1343,10 @@ function renderReceitas(){
 
 function renderParcelas(){
   const parcelas=[
-    {desc:'Fogão Roni',atual:2,total:3,val:500,cor:'#BA7517',termino:'Jul/26'},
-    {desc:'Neg. Cond. Jardim Toscana',atual:1,total:5,val:770.10,cor:'#185FA5',termino:'Out/26'},
-    {desc:'Viagem Selena',atual:1,total:6,val:729.85,cor:'#9C27B0',termino:'Dez/26'},
+    {desc:'Neg. Cond. Jardim Toscana',atual:1,total:3,val:770.10,cor:'#185FA5',termino:'Set/26'},
+    {desc:'Viagem Selena',atual:3,total:7,val:729.85,cor:'#9C27B0',termino:'Nov/26'},
     {desc:'Carro',atual:1,total:48,val:2100,cor:'#1D9E75',termino:'2030'},
-    {desc:'Neg. Itaú',atual:10,total:61,val:365.08,cor:'#888',termino:'2030'},
+    {desc:'Neg. Itaú',atual:12,total:61,val:365.08,cor:'#888',termino:'2030'},
   ];
   let html='';
   parcelas.forEach(p=>{
@@ -1369,11 +1364,9 @@ function renderParcelas(){
   document.getElementById('prev-parcelas-tl').innerHTML=html;
 
   const alivios=[
-    {mes:'Jul/26',desc:'Fogão Roni quitado',eco:500,tipo:'green'},
-    {mes:'Jul/26',desc:'Plano de saúde temporário encerra',eco:1398.26,tipo:'green'},
-    {mes:'Out/26',desc:'Neg. Cond. Jardim Toscana quitada',eco:770,tipo:'green'},
+    {mes:'Set/26',desc:'Neg. Cond. Jardim Toscana quitada',eco:770,tipo:'green'},
     {mes:'Out/26',desc:'Consultoria recorrente encerra (−R$3.500 receita)',eco:0,tipo:'amber'},
-    {mes:'Dez/26',desc:'Viagem Selena quitada',eco:730,tipo:'green'},
+    {mes:'Nov/26',desc:'Viagem Selena quitada',eco:730,tipo:'green'},
   ];
   document.getElementById('prev-alivios').innerHTML=alivios.map(a=>`
     <div class="row">
@@ -1526,11 +1519,10 @@ function renderChartParcelas(){
   const el=document.getElementById('chart-parcelas');
   if(!el)return;
   const parcelas=[
-    {desc:'Fogão Roni',atual:2,total:3,cor:'#BA7517'},
-    {desc:'Neg. Cond.',atual:1,total:5,cor:'#185FA5'},
-    {desc:'Viagem Selena',atual:1,total:6,cor:'#9C27B0'},
+    {desc:'Neg. Cond.',atual:1,total:3,cor:'#185FA5'},
+    {desc:'Viagem Selena',atual:3,total:7,cor:'#9C27B0'},
     {desc:'Carro',atual:1,total:48,cor:'#1D9E75'},
-    {desc:'Neg. Itaú',atual:10,total:62,cor:'#888'},
+    {desc:'Neg. Itaú',atual:12,total:61,cor:'#888'},
   ];
   el.innerHTML=parcelas.map(p=>{
     const pct=Math.round(p.atual/p.total*100);
