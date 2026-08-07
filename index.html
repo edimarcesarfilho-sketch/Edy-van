@@ -117,6 +117,10 @@ input:focus,select.form-sel:focus{border-color:#1D9E75}
     </div>
     <div id="p-alerta-caixa"></div>
     <div class="card">
+      <div class="card-title">Caixa real <span class="add-btn" onclick="editarSaldoInicial()">Saldo inicial</span></div>
+      <div id="p-caixa-real"></div>
+    </div>
+    <div class="card">
       <div class="card-title">Receita do mês</div>
       <div id="p-receita-status"></div>
     </div>
@@ -734,6 +738,13 @@ window.editarNomeConta=function(contaId,nomeAtual){
     renderPagar();renderPainel();
   });
 };
+window.editarSaldoInicial=function(){
+  const atual=Number(getData('saldo_inicial',0))||0;
+  abrirEdit('Saldo inicial do mês','Quanto você tinha no início do mês (R$)',atual,'moeda',(novoVal)=>{
+    setData('saldo_inicial',novoVal);
+    renderPainel();
+  });
+};
 window.editarValConta=function(contaId,valAtual){
   abrirEdit(`Editar valor`,'Valor (R$)',valAtual,'moeda',(novoVal)=>{
     const o=getData('val_overrides',{});o[contaId]=novoVal;setData('val_overrides',o);
@@ -1078,6 +1089,22 @@ function renderPainel(){
     alertaCaixa='<div class="card" style="border-color:#1D9E75;margin-bottom:12px"><div style="color:#3B6D11;font-size:13px;display:flex;gap:8px;align-items:center"><i class="ti ti-check" style="font-size:17px;flex-shrink:0"></i>+'+fmt(extrasRec)+' em extras incluídos na previsão!</div></div>';
   }
   document.getElementById('p-alerta-caixa').innerHTML=alertaCaixa;
+
+  // CAIXA REAL: acompanha automaticamente cada lançamento (receita entra,
+  // gasto e conta paga saem), a partir de um saldo inicial definido 1x por mês.
+  const saldoInicial=Number(getData('saldo_inicial',0))||0;
+  const entradaCaixa=recLanc.reduce((s,r)=>s+r.val,0);
+  const saidaGastosCaixa=gastos2.reduce((s,g)=>s+g.val,0);
+  const saidaContasCaixa=[...getContas('ciclo1'),...getContas('ciclo2')].filter(c=>isPagaMes(c)).reduce((s,c)=>s+getValConta(c),0);
+  const saidaCaixa=saidaGastosCaixa+saidaContasCaixa;
+  const temEmCaixa=saldoInicial+entradaCaixa-saidaCaixa;
+  document.getElementById('p-caixa-real').innerHTML=`
+    <div class="metric-grid" style="margin-bottom:0">
+      <div class="metric"><div class="lbl">Entrou</div><div class="val green" style="font-size:15px">${fmt(entradaCaixa)}</div></div>
+      <div class="metric"><div class="lbl">Saiu</div><div class="val red" style="font-size:15px">${fmt(saidaCaixa)}</div></div>
+      <div class="metric"><div class="lbl">Tem em caixa</div><div class="val ${temEmCaixa>=0?'green':'red'}" style="font-size:15px">${temEmCaixa<0?'- ':''}${fmt(Math.abs(temEmCaixa))}</div></div>
+    </div>
+    <div style="font-size:11px;color:#aaa;margin-top:8px">Saldo inicial do mês: ${fmt(saldoInicial)} · toque em "Saldo inicial" acima pra ajustar</div>`;
   document.getElementById('p-receita-status').innerHTML=`
     <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px">
       <span>Previsto: <b>${fmt(receitaPrevista)}</b></span>
