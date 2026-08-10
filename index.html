@@ -1202,7 +1202,7 @@ function renderPagar(){
             <span class="val-tap" style="border:none;font-size:14px" onclick="event.stopPropagation();editarNomeConta('${c.id}','${nome.replace(/'/g,"\\'")}')">
               ${nome}
             </span>${isUlt?'<span class="badge badge-green">última!</span>':''}
-            ${c.parcTotal>0?`<span class="badge badge-blue">${c.parcAtual}/${c.parcTotal}</span>`:''}
+            ${c.parcTotal>0?`<span class="badge badge-blue" style="cursor:pointer" onclick="event.stopPropagation();editarParcContaDialog('${ciclo}',${contas.indexOf(c)})">${c.parcAtual}/${c.parcTotal}</span>`:''}
             <br><span class="gray" style="font-size:12px">vence dia ${c.dia}</span>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
