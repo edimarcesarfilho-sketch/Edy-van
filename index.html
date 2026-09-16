@@ -1214,11 +1214,12 @@ function renderPagar(){
   }
   makeList(getContas('ciclo1'),'ciclo1','j-ciclo1');
   makeList(getContas('ciclo2'),'ciclo2','j-ciclo2');
-  const c1=getContas('ciclo1').filter(c=>!isContaQuitada(c));
-  const c2=getContas('ciclo2').filter(c=>!isContaQuitada(c));
+  const filtroAtivo=c=>isPagaMes(c)||!isContaQuitada(c);
+  const c1=getContas('ciclo1').filter(filtroAtivo);
+  const c2=getContas('ciclo2').filter(filtroAtivo);
   const todas=[...c1,...c2];
   const pago=todas.filter(c=>paid[c.id]).reduce((s,c)=>s+getValConta(c),0);
-  const total=totalJanela();
+  const total=todas.reduce((s,c)=>s+getValConta(c),0);
   document.getElementById('j-pago').textContent=fmt(pago);
   document.getElementById('j-falta').textContent=fmt(total-pago);
   document.getElementById('j-total').textContent=fmt(total);
