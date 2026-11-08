@@ -104,6 +104,20 @@ input:focus,select.form-sel:focus{border-color:#1D9E75}
     <option value="8">Agosto/26</option>
     <option value="9">Setembro/26</option>
     <option value="10">Outubro/26</option>
+    <option value="11">Novembro/26</option>
+    <option value="12">Dezembro/26</option>
+    <option value="101">Janeiro/27</option>
+    <option value="102">Fevereiro/27</option>
+    <option value="103">Março/27</option>
+    <option value="104">Abril/27</option>
+    <option value="105">Maio/27</option>
+    <option value="106">Junho/27</option>
+    <option value="107">Julho/27</option>
+    <option value="108">Agosto/27</option>
+    <option value="109">Setembro/27</option>
+    <option value="110">Outubro/27</option>
+    <option value="111">Novembro/27</option>
+    <option value="112">Dezembro/27</option>
   </select>
 </div>
 
@@ -482,18 +496,19 @@ const DIVIDAS_PARADAS_BASE = [
 const REC_BASE = {6:20500,7:20500,8:20500,9:20500,10:17000};
 const NOMES_MESES = {6:'Junho/26',7:'Julho/26',8:'Agosto/26',9:'Setembro/26',10:'Outubro/26'};
 
-// FIX 3: detecta o mês atual automaticamente (Jun-Out/2026); fora desse
-// intervalo, cai no mês mais próximo disponível no seletor.
+// FIX 3: detecta o mês atual automaticamente (Jun/26 em diante); fora desse
+// intervalo, cai no mês mais próximo disponível no seletor. Meses de 2027+
+// usam o código 100+mês (ex.: Jan/27=101) pra não colidir com 2026.
 function getMesAtualAuto(){
   const hoje=new Date();
   const ano=hoje.getFullYear();
   const mesReal=hoje.getMonth()+1; // 1-12
   if(ano===2026){
     if(mesReal<6)return 6;
-    if(mesReal>10)return 10;
-    return mesReal;
+    return mesReal; // segue até Dezembro/26 (12) normalmente
   }
-  return ano>2026?10:6;
+  if(ano===2027)return 100+mesReal;
+  return ano>2027?112:6;
 }
 
 let mesSel=getMesAtualAuto(), appData={}, saveTimer=null;
